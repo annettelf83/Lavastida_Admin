@@ -66,6 +66,11 @@ textarea::placeholder{color:#aaa}
   .sl .sn{flex:1}
   .sl .sg{width:100px;text-align:right;font-weight:bold}
   .grand{display:flex;justify-content:space-between;padding:10px 0;margin-top:8px;border-top:2px solid #000;font-weight:bold;font-size:16px}
+  .cl{margin-bottom:10px;padding-bottom:8px;border-bottom:1px dotted #ccc}
+  .cln{font-weight:bold;font-size:13px;margin-bottom:2px}
+  .ctag{font-size:9px;font-family:sans-serif;margin-left:8px;padding:1px 6px;border:1px solid #999;border-radius:8px;font-weight:normal;text-transform:uppercase;letter-spacing:.5px}
+  .cli{font-size:12px;padding-left:12px;color:#333;line-height:1.6}
+  .clt{text-align:right;font-weight:bold;font-size:13px;margin-top:3px;color:#2F5233}
 }
 </style>
 </head>
@@ -89,6 +94,23 @@ textarea::placeholder{color:#aaa}
 <div id="pdf-view"></div>
 <script>
 // ============================================================
+// PRECIOS (CUP por unidad)
+// ============================================================
+const PRECIOS = {
+  'Venezolano': 2322,
+  'Pan venezolano': 2322,
+  'Lacitos': 125,
+  'Panecillos': 125,
+};
+
+function getPrice(nombre){
+  for(const[prefix,price] of Object.entries(PRECIOS)){
+    if(nombre.startsWith(prefix)) return price;
+  }
+  return 0;
+}
+
+// ============================================================
 // TIPOS DE MASA
 // ============================================================
 const MASAS = [
@@ -104,6 +126,7 @@ const PESO_DEFAULT = {
   'Babka (chocolate)': 500,
   'Babka (canela)': 500,
   'Molde Brioche': 600,
+  'Pretzels': 500,
   'Pretzels (cinco)': 500,
   'Bagel: Everything Bagel': 100,
   'Bagel: Amapola': 100,
@@ -203,8 +226,8 @@ function parseMessages(text){
     const c=chunks[i],o={id:Date.now()+i,items:[],cliente:'',entrega:'',total:0,fecha:todayStr()};
     const cm=c.match(/Cliente:\s*(.+)/i);if(cm)o.cliente=cm[1].trim();
     const em=c.match(/Entrega:\s*(.+)/i);if(em)o.entrega=em[1].trim();
-    const ir=/[•\-\*]\s*(.+?)\s*[×xX]\s*(\d+)\s*[—\-–]\s*CUP\s*([\d,\.]+)/g;let m;
-    while((m=ir.exec(c))!==null){const n=m[1].trim(),q=parseInt(m[2]),p=parseInt(m[3].replace(/[,\.]/g,''));if(n&&q>0)o.items.push({nombre:n,cantidad:q,precio:p});}
+    const ir=/[•\-\*]\s*(.+?)\s*[×xX]\s*(\d+)(?:\s*[—\-–]\s*CUP\s*([\d,\.]+))?/g;let m;
+    while((m=ir.exec(c))!==null){const n=m[1].trim(),q=parseInt(m[2]),p=m[3]?parseInt(m[3].replace(/[,\.]/g,'')):getPrice(n);if(n&&q>0)o.items.push({nombre:n,cantidad:q,precio:p});}
     const tm=c.match(/Total:\s*CUP\s*([\d,\.]+)/i);
     o.total=tm?parseInt(tm[1].replace(/[,\.]/g,'')):o.items.reduce((s,it)=>s+it.precio*it.cantidad,0);
     if(o.items.length>0)parsed.push(o);
@@ -292,9 +315,46 @@ function renderExport(){
   for(const masa of MASAS){const m=masas[masa.nombre];if(m.items.length)h+=`<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0"><span>${masa.nombre}</span><span style="font-weight:bold">${fmtG(m.total)}</span></div>`;}
   h+=`<div style="display:flex;justify-content:space-between;font-weight:bold;font-size:14px;border-top:1px solid #999;padding-top:4px;margin-top:4px"><span>TOTAL</span><span>${fmtG(grandG)}</span></div>`;
   h+=`</div></div>`;
-  h+=`<button class="btn" onclick="genPDF()">Generar PDF</button>`;
+  h+=`<button class="btn" onclick="genPDF()">Generar PDF — Producción</button>`;
+  h+=`<div style="height:12px"></div>`;
+  h+=`<div class="stitle" style="font-size:14px;margin-top:4px">PDF de Pedidos</div>`;
+  h+=`<div class="ssub">Por tipo de masa + por cliente con totales en CUP</div>`;
+  h+=`<button class="btn" style="background:#5a3e2b" onclick="genPDFPedidos()">Generar PDF — Pedidos</button>`;
   h+=`<div style="font-size:11px;color:#888;margin-top:8px;font-style:italic">Toca "Guardar como PDF" en la pantalla de impresión</div>`;
   el.innerHTML=h;
+}
+
+function genPDFPedidos(){
+  const prod=getProduction(),masas=calcMasas(prod);
+  const today=orders.filter(o=>o.fecha===todayStr());
+  let h=`<div class="pt">LAVASTIDA</div><div class="ps">Hoja de Pedidos</div><div class="pd">${fmtDate(todayStr())}</div>`;
+  // --- Por tipo de masa ---
+  for(const masa of MASAS){
+    const m=masas[masa.nombre];
+    if(!m.items.length) continue;
+    h+=`<div class="mg"><div class="mgn">${masa.nombre}</div>`;
+    h+=`<div class="mlh"><span class="n">Producto</span><span class="c">Cant.</span><span class="g">Masa (g)</span></div>`;
+    m.items.forEach(it=>{
+      h+=`<div class="ml"><span class="n">${sn(it.nombre)}</span><span class="c">${it.qty}</span><span class="g">${fmtGnum(it.totalG)}</span></div>`;
+    });
+    h+=`<div class="mgt"><span>Total ${masa.nombre}</span><span>${fmtG(m.total)}</span></div></div>`;
+  }
+  // --- Por cliente ---
+  h+=`<div class="sep"><div class="summary-title">Por cliente</div>`;
+  today.forEach(o=>{
+    const isMsg=o.entrega&&o.entrega.toLowerCase().includes('mensajería')&&!o.entrega.toLowerCase().includes('sin');
+    h+=`<div class="cl">`;
+    h+=`<div class="cln">${esc(o.cliente)}<span class="ctag">${isMsg?'mensajería':'recoge'}</span></div>`;
+    o.items.forEach(it=>{
+      h+=`<div class="cli">${it.cantidad}× ${esc(it.nombre)}</div>`;
+    });
+    h+=`<div class="clt">${fmtCUP(o.total)} CUP</div>`;
+    h+=`</div>`;
+  });
+  const grandCUP=today.reduce((s,o)=>s+o.total,0);
+  h+=`<div class="grand"><span>TOTAL — ${today.length} pedido${today.length!==1?'s':''}</span><span>${fmtCUP(grandCUP)} CUP</span></div></div>`;
+  $('pdf-view').innerHTML=h;
+  setTimeout(()=>window.print(),200);
 }
 
 function genPDF(){
