@@ -334,22 +334,10 @@ function renderExport(){
 }
 
 function genPDFPedidos(){
-  const prod=getProduction(),masas=calcMasas(prod);
   const today=orders.filter(o=>o.fecha===todayStr());
-  let h=`<div class="pt">LAVASTIDA</div><div class="ps">Hoja de Pedidos</div><div class="pd">${fmtDate(todayStr())}</div>`;
-  // --- Por tipo de masa ---
-  for(const masa of MASAS){
-    const m=masas[masa.nombre];
-    if(!m.items.length) continue;
-    h+=`<div class="mg"><div class="mgn">${masa.nombre}</div>`;
-    h+=`<div class="mlh"><span class="n">Producto</span><span class="c">Cant.</span><span class="g">Masa (g)</span></div>`;
-    m.items.forEach(it=>{
-      h+=`<div class="ml"><span class="n">${sn(it.nombre)}</span><span class="c">${it.qty}</span><span class="g">${fmtGnum(it.totalG)}</span></div>`;
-    });
-    h+=`<div class="mgt"><span>Total ${masa.nombre}</span><span>${fmtG(m.total)}</span></div></div>`;
-  }
+  let h=`<div class="pt">LAVASTIDA</div><div class="ps">Pedidos del día</div><div class="pd">${fmtDate(todayStr())}</div>`;
   // --- Por cliente ---
-  h+=`<div class="sep"><div class="summary-title">Por cliente</div>`;
+  h+=`<div>`;
   today.forEach(o=>{
     const isMsg=o.entrega&&o.entrega.toLowerCase().includes('mensajería')&&!o.entrega.toLowerCase().includes('sin');
     h+=`<div class="cl">`;
