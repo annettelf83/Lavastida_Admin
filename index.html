@@ -51,11 +51,15 @@ textarea::placeholder{color:#aaa}
   .pd{text-align:center;font-size:14px;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #000}
   .mg{margin-bottom:16px}
   .mgn{font-weight:bold;font-size:15px;margin-bottom:4px;border-bottom:1px solid #ccc;padding-bottom:3px}
+  .mlh{display:flex;padding:2px 0 3px 12px;font-size:10px;color:#888;letter-spacing:.5px;border-bottom:1px dotted #ddd;margin-bottom:2px}
+  .mlh .n{flex:1}
+  .mlh .c{width:40px;text-align:center}
+  .mlh .g{width:80px;text-align:right}
   .ml{display:flex;padding:3px 0 3px 12px;font-size:13px}
   .ml .n{flex:1}
   .ml .c{width:40px;text-align:center}
-  .ml .g{width:70px;text-align:right}
-  .mgt{display:flex;justify-content:flex-end;font-weight:bold;font-size:14px;border-top:1px solid #999;padding-top:4px;margin-top:3px;gap:20px}
+  .ml .g{width:80px;text-align:right}
+  .mgt{display:flex;justify-content:space-between;font-weight:bold;font-size:13px;border-top:1px solid #999;padding-top:4px;margin-top:3px}
   .sep{border-top:3px double #000;margin-top:20px;padding-top:12px}
   .summary-title{font-weight:bold;font-size:16px;margin-bottom:8px;text-transform:uppercase;letter-spacing:2px}
   .sl{display:flex;padding:5px 0;font-size:14px;border-bottom:1px dotted #ccc}
@@ -134,6 +138,14 @@ function calcMasas(prod){
     result[masa].items.push({nombre, qty, peso, totalG});
     result[masa].total += totalG;
   }
+  for(const masa of MASAS){
+    result[masa.nombre].items.sort((a,b)=>{
+      const ai=masa.productos.findIndex(p=>a.nombre.startsWith(p));
+      const bi=masa.productos.findIndex(p=>b.nombre.startsWith(p));
+      if(ai!==bi) return ai-bi;
+      return a.peso-b.peso;
+    });
+  }
   return result;
 }
 
@@ -155,7 +167,7 @@ const FAMILIES={
   'Molde Brioche':['Molde Brioche'],
   'Babka':['Babka (chocolate)','Babka (canela)'],
   'Lacitos':['Lacitos 40g'],
-  'Challah':['Challah 400g','Challah 500g','Challah 600g'],
+  'Challah':['Challah 160g','Challah 400g','Challah 500g','Challah 600g'],
   'Cinnamon Roll':['Cinnamon Roll 60g','Cinnamon Roll 100g'],
   'Panecillos':['Panecillos 40g'],
   'Bagel':['Bagel: Everything Bagel','Bagel: Amapola','Bagel: Ajonjolí','Bagel: Avena','Bagel plain'],
@@ -164,9 +176,9 @@ const FAMILIES={
 };
 
 function sn(nombre){
-  const r=[['Hogaza rústica ',''],['Baguette ',''],['Ciabatta ',''],['Focaccia ',''],['Bun Brioche ',''],['Babka ',''],['Challah ',''],['Cinnamon Roll ',''],['Bagel: ',''],['Molde Brioche','Molde'],['Lacitos ',''],['Panecillos ','']];
+  const r=[['Hogaza rústica ','Hogaza '],['Baguette ','Baguette '],['Ciabatta ','Ciabatta '],['Focaccia ','Focaccia '],['Bun Brioche ','Bun Brioche '],['Babka ','Babka '],['Challah ','Challah '],['Cinnamon Roll ','Cinnamon Roll '],['Bagel: ','Bagel '],['Molde Brioche','Molde Brioche'],['Lacitos ','Lacitos '],['Panecillos ','Panecillos ']];
   for(const[f,t]of r)if(nombre.includes(f))return nombre.replace(f,t);
-  if(nombre==='Bagel plain')return 'plain';
+  if(nombre==='Bagel plain')return 'Bagel plain';
   return nombre;
 }
 
@@ -292,10 +304,11 @@ function genPDF(){
     const m=masas[masa.nombre];
     if(!m.items.length) continue;
     h+=`<div class="mg"><div class="mgn">${masa.nombre}</div>`;
+    h+=`<div class="mlh"><span class="n">Producto</span><span class="c">Cant.</span><span class="g">Masa (g)</span></div>`;
     m.items.forEach(it=>{
       h+=`<div class="ml"><span class="n">${sn(it.nombre)}</span><span class="c">${it.qty}</span><span class="g">${fmtGnum(it.totalG)}</span></div>`;
     });
-    h+=`<div class="mgt"><span>${fmtG(m.total)}</span></div></div>`;
+    h+=`<div class="mgt"><span>Total ${masa.nombre}</span><span>${fmtG(m.total)}</span></div></div>`;
   }
   // Unclassified products
   for(const[nombre,q]of Object.entries(prod)){
