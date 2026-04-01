@@ -142,15 +142,18 @@ const PESO_DEFAULT = {
 };
 
 function getWeight(nombre){
-  if(PESO_DEFAULT[nombre]) return PESO_DEFAULT[nombre];
+  const key=Object.keys(PESO_DEFAULT).find(k=>nombre.trim().toLowerCase()===k.toLowerCase());
+  if(key) return PESO_DEFAULT[key];
   const m = nombre.match(/(\d+)\s*g/i);
   return m ? parseInt(m[1]) : 0;
 }
 
 function getMasa(nombre){
+  const n=nombre.trim().toLowerCase();
   for(const masa of MASAS){
     for(const prefix of masa.productos){
-      if(nombre.startsWith(prefix) || nombre.includes(prefix)) return masa.nombre;
+      const p=prefix.toLowerCase();
+      if(n.startsWith(p)||n.includes(p)) return masa.nombre;
     }
   }
   return null;
@@ -169,8 +172,8 @@ function calcMasas(prod){
   }
   for(const masa of MASAS){
     result[masa.nombre].items.sort((a,b)=>{
-      const ai=masa.productos.findIndex(p=>a.nombre.startsWith(p));
-      const bi=masa.productos.findIndex(p=>b.nombre.startsWith(p));
+      const ai=masa.productos.findIndex(p=>a.nombre.trim().toLowerCase().startsWith(p.toLowerCase()));
+      const bi=masa.productos.findIndex(p=>b.nombre.trim().toLowerCase().startsWith(p.toLowerCase()));
       if(ai!==bi) return ai-bi;
       return a.peso-b.peso;
     });
