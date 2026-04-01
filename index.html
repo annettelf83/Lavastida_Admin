@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Lavastida — Pedidos</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Georgia,'Times New Roman',serif;background:#FAF8F5;color:#1a1a1a;max-width:480px;margin:0 auto;min-height:100vh}
+.header{background:#1a1a1a;color:#FAF8F5;padding:18px 16px 12px;text-align:center}
+.header h1{font-size:20px;letter-spacing:3px}
+.header p{font-size:11px;font-style:italic;opacity:.6;margin-top:2px}
+.tabs{display:flex;background:#2d2d2d}
+.tabs div{flex:1;padding:10px 4px;text-align:center;color:#888;font-size:12px;cursor:pointer;border-bottom:2px solid transparent}
+.tabs div.on{color:#FAF8F5;border-bottom-color:#c9a96e;font-weight:bold}
+.section{padding:12px 16px}
+textarea{width:100%;min-height:160px;padding:12px;border:1px solid #ccc;border-radius:10px;font-family:Georgia,serif;font-size:13px;background:white;resize:vertical;line-height:1.5}
+textarea::placeholder{color:#aaa}
+.btn{display:block;width:100%;padding:12px;background:#2F5233;color:white;border:none;border-radius:8px;font-family:Georgia,serif;font-size:14px;font-weight:bold;cursor:pointer;margin-top:10px;letter-spacing:.5px}
+.btn.red{background:white;color:#c0392b;border:1px solid #e0c0c0;font-weight:normal;font-size:12px;margin-top:16px}
+.info{font-size:12px;color:#888;margin-bottom:10px;line-height:1.4}
+.ocard{padding:14px;background:white;border-radius:10px;border:1px solid #eee;margin-bottom:8px}
+.ocard .name{font-weight:bold;font-size:14px;margin-bottom:4px}
+.ocard .items{font-size:12px;color:#555;line-height:1.6}
+.ocard .ototal{font-weight:bold;color:#2F5233;font-size:14px;margin-top:6px;text-align:right}
+.prod-table{border-radius:10px;overflow:hidden;border:1px solid #ddd;margin-top:12px}
+.prod-table .th{display:flex;justify-content:space-between;padding:10px 14px;background:#1a1a1a;color:white;font-size:12px;font-weight:bold}
+.prod-table .tr{display:flex;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #eee}
+.prod-table .tr:nth-child(even){background:#fafaf8}
+.prod-table .tr .q{font-size:15px;font-weight:bold;color:#2F5233;min-width:60px;text-align:right}
+.prod-table .tf{display:flex;justify-content:space-between;padding:12px 14px;background:#f0ece6;font-weight:bold;font-size:14px}
+.stitle{font-size:16px;font-weight:bold;margin-bottom:4px}
+.ssub{font-size:12px;color:#888;margin-bottom:10px}
+.empty{text-align:center;padding:32px 16px;color:#999;font-size:13px}
+.counter{background:#f0ece6;padding:10px 16px;font-size:13px;display:flex;justify-content:space-between}
+.counter .t{font-weight:bold;color:#2F5233}
+.detail-card{margin-top:6px;padding:10px 14px;background:white;border-radius:8px;border:1px solid #eee}
+.detail-card .dn{font-weight:bold;font-size:13px;margin-bottom:3px}
+.detail-card .di{font-size:12px;color:#555}
+.hidden{display:none}
+.tag{display:inline-block;font-size:9px;padding:2px 8px;border-radius:10px;margin-left:6px;text-transform:uppercase;letter-spacing:.5px;font-family:sans-serif}
+.tag.msg{background:#E8DAEF;color:#6C3483}
+.tag.nomsg{background:#eee;color:#888}
+#pdf-view{display:none}
+@media print{
+  body{max-width:none;background:white}
+  .header,.tabs,.section,#v-input,#v-prod,#v-export{display:none!important}
+  #pdf-view{display:block!important;padding:24px 32px;font-family:Georgia,serif;color:#000}
+  .pt{text-align:center;font-size:20px;font-weight:bold;letter-spacing:4px;margin-bottom:2px}
+  .ps{text-align:center;font-size:11px;font-style:italic;color:#666;margin-bottom:4px}
+  .pd{text-align:center;font-size:14px;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #000}
+  .mg{margin-bottom:16px}
+  .mgn{font-weight:bold;font-size:15px;margin-bottom:4px;border-bottom:1px solid #ccc;padding-bottom:3px}
+  .ml{display:flex;padding:3px 0 3px 12px;font-size:13px}
+  .ml .n{flex:1}
+  .ml .c{width:40px;text-align:center}
+  .ml .g{width:70px;text-align:right}
+  .mgt{display:flex;justify-content:flex-end;font-weight:bold;font-size:14px;border-top:1px solid #999;padding-top:4px;margin-top:3px;gap:20px}
+  .sep{border-top:3px double #000;margin-top:20px;padding-top:12px}
+  .summary-title{font-weight:bold;font-size:16px;margin-bottom:8px;text-transform:uppercase;letter-spacing:2px}
+  .sl{display:flex;padding:5px 0;font-size:14px;border-bottom:1px dotted #ccc}
+  .sl .sn{flex:1}
+  .sl .sg{width:100px;text-align:right;font-weight:bold}
+  .grand{display:flex;justify-content:space-between;padding:10px 0;margin-top:8px;border-top:2px solid #000;font-weight:bold;font-size:16px}
+}
+</style>
+</head>
+<body>
+<div class="header"><h1>LAVASTIDA</h1><p>Gestión de pedidos</p></div>
+<div class="tabs">
+  <div class="on" data-t="input">Pegar pedidos</div>
+  <div data-t="prod">Producción</div>
+  <div data-t="export">PDF</div>
+</div>
+<div id="v-input" class="section">
+  <div class="info">Pega aquí los mensajes de WhatsApp, uno o varios.</div>
+  <textarea id="paste-area" placeholder="Pega aquí los mensajes de WhatsApp..."></textarea>
+  <button class="btn" onclick="addOrders()">Agregar pedidos</button>
+  <div id="parse-result"></div>
+  <div class="counter hidden" id="day-counter"><span id="day-count"></span><span class="t" id="day-total"></span></div>
+  <div id="orders-display"></div>
+</div>
+<div id="v-prod" class="section hidden"></div>
+<div id="v-export" class="section hidden"></div>
+<div id="pdf-view"></div>
+<script>
+// ============================================================
+// TIPOS DE MASA
+// ============================================================
+const MASAS = [
+  { nombre:'Masa Madre', productos:['Hogaza rústica','Baguette','Ciabatta','Focaccia'] },
+  { nombre:'Brioche', productos:['Bun Brioche','Molde Brioche','Babka','Lacitos'] },
+  { nombre:'Challah', productos:['Challah','Cinnamon Roll','Panecillos'] },
+  { nombre:'Bagel', productos:['Bagel','Pretzels'] },
+  { nombre:'Venezolano/Cubano', productos:['Venezolano','Cubano','Pan venezolano','Pan cubano'] },
+];
+
+// Peso por defecto para productos sin gramaje en el nombre
+const PESO_DEFAULT = {
+  'Molde Brioche': 600,
+  'Pretzels (cinco)': 500,
+  'Bagel: Everything Bagel': 100,
+  'Bagel: Amapola': 100,
+  'Bagel: Ajonjolí': 100,
+  'Bagel: Avena': 100,
+  'Bagel plain': 100,
+};
+
+function getWeight(nombre){
+  if(PESO_DEFAULT[nombre]) return PESO_DEFAULT[nombre];
+  const m = nombre.match(/(\d+)\s*g/i);
+  return m ? parseInt(m[1]) : 0;
+}
+
+function getMasa(nombre){
+  for(const masa of MASAS){
+    for(const prefix of masa.productos){
+      if(nombre.startsWith(prefix) || nombre.includes(prefix)) return masa.nombre;
+    }
+  }
+  return null;
+}
+
+function calcMasas(prod){
+  const result = {};
+  for(const masa of MASAS) result[masa.nombre] = {items:[], total:0};
+  for(const[nombre,qty] of Object.entries(prod)){
+    const masa = getMasa(nombre);
+    if(!masa) continue;
+    const peso = getWeight(nombre);
+    const totalG = peso * qty;
+    result[masa].items.push({nombre, qty, peso, totalG});
+    result[masa].total += totalG;
+  }
+  return result;
+}
+
+function fmtG(g){
+  if(g>=1000) return (g/1000).toFixed(1).replace('.0','') + ' kg';
+  return g.toLocaleString('es') + ' g';
+}
+function fmtGnum(g){ return g.toLocaleString('es'); }
+
+// ============================================================
+// FAMILIAS PARA DISPLAY
+// ============================================================
+const FAMILIES={
+  'Hogaza':['Hogaza rústica 300g','Hogaza rústica 500g','Hogaza rústica 800g'],
+  'Baguette':['Baguette 150g','Baguette 300g','Baguette 500g'],
+  'Ciabatta':['Ciabatta 150g','Ciabatta 300g'],
+  'Focaccia':['Focaccia 400g'],
+  'Bun Brioche':['Bun Brioche 25g','Bun Brioche 50g','Bun Brioche 90g','Bun Brioche 120g'],
+  'Molde Brioche':['Molde Brioche'],
+  'Babka':['Babka (chocolate)','Babka (canela)'],
+  'Lacitos':['Lacitos 40g'],
+  'Challah':['Challah 400g','Challah 500g','Challah 600g'],
+  'Cinnamon Roll':['Cinnamon Roll 60g','Cinnamon Roll 100g'],
+  'Panecillos':['Panecillos 40g'],
+  'Bagel':['Bagel: Everything Bagel','Bagel: Amapola','Bagel: Ajonjolí','Bagel: Avena','Bagel plain'],
+  'Pretzels':['Pretzels (cinco)'],
+  'Venezolano/Cubano':['Venezolano 300g','Cubano 300g','Pan venezolano 300g','Pan cubano 300g'],
+};
+
+function sn(nombre){
+  const r=[['Hogaza rústica ',''],['Baguette ',''],['Ciabatta ',''],['Focaccia ',''],['Bun Brioche ',''],['Babka ',''],['Challah ',''],['Cinnamon Roll ',''],['Bagel: ',''],['Molde Brioche','Molde'],['Lacitos ',''],['Panecillos ','']];
+  for(const[f,t]of r)if(nombre.includes(f))return nombre.replace(f,t);
+  if(nombre==='Bagel plain')return 'plain';
+  return nombre;
+}
+
+// ============================================================
+// ORDERS
+// ============================================================
+let orders=[];
+try{const s=localStorage.getItem('lav-p7');if(s)orders=JSON.parse(s);}catch(e){}
+function save(){try{localStorage.setItem('lav-p7',JSON.stringify(orders));}catch(e){}}
+const $=id=>document.getElementById(id);
+let tab='input';
+document.querySelectorAll('.tabs div').forEach(el=>el.addEventListener('click',()=>{
+  tab=el.dataset.t;
+  document.querySelectorAll('.tabs div').forEach(t=>t.classList.toggle('on',t.dataset.t===tab));
+  ['input','prod','export'].forEach(v=>$('v-'+v).classList.toggle('hidden',v!==tab));
+  render();
+}));
+
+function parseMessages(text){
+  const chunks=text.split(/Hola Lavastida,?\s*quiero este pedido:/i),parsed=[];
+  for(let i=1;i<chunks.length;i++){
+    const c=chunks[i],o={id:Date.now()+i,items:[],cliente:'',entrega:'',total:0,fecha:todayStr()};
+    const cm=c.match(/Cliente:\s*(.+)/i);if(cm)o.cliente=cm[1].trim();
+    const em=c.match(/Entrega:\s*(.+)/i);if(em)o.entrega=em[1].trim();
+    const ir=/[•\-\*]\s*(.+?)\s*[×xX]\s*(\d+)\s*[—\-–]\s*CUP\s*([\d,\.]+)/g;let m;
+    while((m=ir.exec(c))!==null){const n=m[1].trim(),q=parseInt(m[2]),p=parseInt(m[3].replace(/[,\.]/g,''));if(n&&q>0)o.items.push({nombre:n,cantidad:q,precio:p});}
+    const tm=c.match(/Total:\s*CUP\s*([\d,\.]+)/i);
+    o.total=tm?parseInt(tm[1].replace(/[,\.]/g,'')):o.items.reduce((s,it)=>s+it.precio*it.cantidad,0);
+    if(o.items.length>0)parsed.push(o);
+  }
+  return parsed;
+}
+function todayStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function fmtCUP(n){return n.toLocaleString('es');}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function fmtDate(s){const days=['Dom','Lun','Mar','Miérc','Jue','Vie','Sáb'];const months=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Sept','Oct','Nov','Dic'];const d=new Date(s+'T12:00:00');return days[d.getDay()]+'. '+d.getDate()+' de '+months[d.getMonth()]+', '+d.getFullYear();}
+
+function addOrders(){
+  const text=$('paste-area').value.trim();
+  if(!text){$('parse-result').innerHTML='<div style="color:#c0392b;font-size:12px;margin-top:8px">Pega al menos un mensaje</div>';return;}
+  const parsed=parseMessages(text);
+  if(!parsed.length){$('parse-result').innerHTML='<div style="color:#c0392b;font-size:12px;margin-top:8px">No encontré pedidos. Debe incluir "Hola Lavastida, quiero este pedido:"</div>';return;}
+  orders.push(...parsed);save();$('paste-area').value='';
+  $('parse-result').innerHTML=`<div style="color:#2F5233;font-size:12px;margin-top:8px;font-weight:bold">✓ ${parsed.length} pedido${parsed.length>1?'s':''} (${parsed.map(o=>o.cliente).join(', ')})</div>`;
+  renderOrders();
+}
+function removeOrder(id){orders=orders.filter(o=>o.id!==id);save();renderOrders();render();}
+
+function renderOrders(){
+  const today=orders.filter(o=>o.fecha===todayStr()),total=today.reduce((s,o)=>s+o.total,0);
+  if(!orders.length){$('day-counter').classList.add('hidden');$('orders-display').innerHTML='';return;}
+  $('day-counter').classList.remove('hidden');
+  $('day-count').textContent=today.length+' pedido'+(today.length!==1?'s':'')+' hoy';
+  $('day-total').textContent=fmtCUP(total)+' CUP';
+  let h='';const byDate={};orders.forEach(o=>{if(!byDate[o.fecha])byDate[o.fecha]=[];byDate[o.fecha].push(o);});
+  Object.keys(byDate).sort().reverse().forEach(f=>{
+    const d=byDate[f],dt=d.reduce((s,o)=>s+o.total,0);
+    h+=`<div style="font-size:11px;color:#999;margin:12px 0 6px;display:flex;justify-content:space-between"><span>${f===todayStr()?'HOY':f}</span><span>${fmtCUP(dt)} CUP</span></div>`;
+    d.forEach(o=>{
+      const isMsg=o.entrega&&o.entrega.toLowerCase().includes('mensajería')&&!o.entrega.toLowerCase().includes('sin');
+      h+=`<div class="ocard"><div style="display:flex;justify-content:space-between"><div class="name">${esc(o.cliente)}${isMsg?'<span class="tag msg">mensajería</span>':'<span class="tag nomsg">recoge</span>'}</div><div style="cursor:pointer;color:#ccc;font-size:16px" onclick="if(confirm('¿Eliminar?'))removeOrder(${o.id})">✕</div></div><div class="items">${o.items.map(it=>it.cantidad+'× '+esc(it.nombre)).join('<br>')}</div><div class="ototal">${fmtCUP(o.total)} CUP</div></div>`;
+    });
+  });
+  h+=`<button class="btn red" onclick="if(confirm('¿Borrar todos?')){orders=[];save();renderOrders();render();}">Borrar todos los pedidos</button>`;
+  $('orders-display').innerHTML=h;
+}
+
+function getProduction(){const today=orders.filter(o=>o.fecha===todayStr()),prod={};today.forEach(o=>o.items.forEach(it=>{prod[it.nombre]=(prod[it.nombre]||0)+it.cantidad;}));return prod;}
+function render(){if(tab==='prod')renderProd();else if(tab==='export')renderExport();}
+
+function renderProd(){
+  const el=$('v-prod'),prod=getProduction(),masas=calcMasas(prod);
+  let h=`<div class="stitle">Producción del día</div><div class="ssub">Por tipo de masa</div>`;
+  if(!Object.keys(prod).length){h+=`<div class="empty">Sin pedidos</div>`;el.innerHTML=h;return;}
+  for(const masa of MASAS){
+    const m=masas[masa.nombre];
+    if(!m.items.length) continue;
+    h+=`<div class="prod-table"><div class="th"><span>${masa.nombre}</span><span>${fmtG(m.total)}</span></div>`;
+    m.items.forEach(it=>h+=`<div class="tr"><span>${sn(it.nombre)}: ${it.qty}</span><span class="q">${fmtGnum(it.totalG)}</span></div>`);
+    h+=`</div><div style="height:10px"></div>`;
+  }
+  // Products not in any mass type
+  for(const[nombre,q]of Object.entries(prod)){
+    if(!getMasa(nombre)){h+=`<div class="prod-table"><div class="th"><span>${esc(nombre)}</span><span>${q}</span></div></div><div style="height:10px"></div>`;}
+  }
+  const today=orders.filter(o=>o.fecha===todayStr());
+  h+=`<div style="margin-top:16px"><div class="ssub">Por cliente</div>`;
+  today.forEach(o=>{h+=`<div class="detail-card"><div class="dn">${esc(o.cliente)}</div><div class="di">${o.items.map(it=>it.cantidad+'× '+esc(it.nombre)).join('<br>')}</div></div>`;});
+  h+=`</div>`;
+  el.innerHTML=h;
+}
+
+function renderExport(){
+  const el=$('v-export'),prod=getProduction(),masas=calcMasas(prod);
+  let h=`<div class="stitle">Hoja de producción</div><div class="ssub">Previsualización del PDF</div>`;
+  if(!Object.keys(prod).length){h+=`<div class="empty">Sin pedidos</div>`;el.innerHTML=h;return;}
+  h+=`<div style="background:white;border:1px solid #ddd;border-radius:10px;padding:14px;margin-bottom:12px">`;
+  h+=`<div style="text-align:center;font-weight:bold;font-size:14px;letter-spacing:2px;margin-bottom:6px">LAVASTIDA</div>`;
+  h+=`<div style="text-align:center;font-size:12px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #ddd">${fmtDate(todayStr())}</div>`;
+  for(const masa of MASAS){
+    const m=masas[masa.nombre];
+    if(!m.items.length)continue;
+    h+=`<div style="margin-bottom:10px"><div style="font-weight:bold;font-size:12px;border-bottom:1px solid #ddd;padding-bottom:2px;margin-bottom:3px">${masa.nombre}</div>`;
+    m.items.forEach(it=>{
+      h+=`<div style="display:flex;padding:1px 0 1px 10px;font-size:11px;color:#555"><span style="flex:1">${sn(it.nombre)}: ${it.qty}</span><span style="font-weight:bold;width:60px;text-align:right">${fmtGnum(it.totalG)}</span></div>`;
+    });
+    h+=`<div style="text-align:right;font-weight:bold;font-size:12px;border-top:1px dotted #ccc;padding-top:2px">${fmtG(m.total)}</div></div>`;
+  }
+  const grandG=Object.values(masas).reduce((s,m)=>s+m.total,0);
+  h+=`<div style="margin-top:8px;padding-top:8px;border-top:2px solid #1a1a1a">`;
+  for(const masa of MASAS){const m=masas[masa.nombre];if(m.items.length)h+=`<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0"><span>${masa.nombre}</span><span style="font-weight:bold">${fmtG(m.total)}</span></div>`;}
+  h+=`<div style="display:flex;justify-content:space-between;font-weight:bold;font-size:14px;border-top:1px solid #999;padding-top:4px;margin-top:4px"><span>TOTAL</span><span>${fmtG(grandG)}</span></div>`;
+  h+=`</div></div>`;
+  h+=`<button class="btn" onclick="genPDF()">Generar PDF</button>`;
+  h+=`<div style="font-size:11px;color:#888;margin-top:8px;font-style:italic">Toca "Guardar como PDF" en la pantalla de impresión</div>`;
+  el.innerHTML=h;
+}
+
+function genPDF(){
+  const prod=getProduction(),masas=calcMasas(prod);
+  let h=`<div class="pt">LAVASTIDA</div><div class="ps">Hoja de Producción</div><div class="pd">${fmtDate(todayStr())}</div>`;
+  for(const masa of MASAS){
+    const m=masas[masa.nombre];
+    if(!m.items.length) continue;
+    h+=`<div class="mg"><div class="mgn">${masa.nombre}</div>`;
+    m.items.forEach(it=>{
+      h+=`<div class="ml"><span class="n">${sn(it.nombre)}</span><span class="c">${it.qty}</span><span class="g">${fmtGnum(it.totalG)}</span></div>`;
+    });
+    h+=`<div class="mgt"><span>${fmtG(m.total)}</span></div></div>`;
+  }
+  // Unclassified products
+  for(const[nombre,q]of Object.entries(prod)){
+    if(!getMasa(nombre)){
+      const w=getWeight(nombre),tg=w*q;
+      h+=`<div class="mg"><div class="mgn">${esc(nombre)}</div><div class="ml"><span class="n"></span><span class="c">${q}</span><span class="g">${tg?fmtGnum(tg):''}</span></div></div>`;
+    }
+  }
+  h+=`<div class="sep"><div class="summary-title">Resumen de masas</div>`;
+  for(const masa of MASAS){const m=masas[masa.nombre];if(m.items.length)h+=`<div class="sl"><span class="sn">${masa.nombre}</span><span class="sg">${fmtG(m.total)}</span></div>`;}
+  const grandG=Object.values(masas).reduce((s,m)=>s+m.total,0);
+  h+=`<div class="grand"><span>TOTAL</span><span>${fmtG(grandG)}</span></div></div>`;
+  $('pdf-view').innerHTML=h;
+  setTimeout(()=>window.print(),200);
+}
+
+renderOrders();
+</script>
+</body>
+</html>
