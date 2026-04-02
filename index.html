@@ -135,16 +135,14 @@ const PESO_DEFAULT = {
   'Pan cubano': 300,
   'Pretzels': 500,
   'Pretzels (cinco)': 500,
-  'Bagel: Everything Bagel': 100,
-  'Bagel: Amapola': 100,
-  'Bagel: Ajonjolí': 100,
-  'Bagel: Avena': 100,
-  'Bagel plain': 100,
+  'Bagel': 100,
 };
 
 function getWeight(nombre){
-  const key=Object.keys(PESO_DEFAULT).find(k=>nombre.trim().toLowerCase()===k.toLowerCase());
-  if(key) return PESO_DEFAULT[key];
+  const n=nombre.trim().toLowerCase();
+  for(const[key,val] of Object.entries(PESO_DEFAULT)){
+    if(n.startsWith(key.toLowerCase())) return val;
+  }
   const m = nombre.match(/(\d+)\s*g/i);
   return m ? parseInt(m[1]) : 0;
 }
