@@ -157,12 +157,13 @@ const PESO_DEFAULT = {
 };
 
 function getWeight(nombre){
+  const m = nombre.match(/(\d+)\s*g/i);
+  if(m) return parseInt(m[1]);
   const n=nombre.trim().toLowerCase();
   for(const[key,val] of Object.entries(PESO_DEFAULT)){
     if(n.startsWith(key.toLowerCase())) return val;
   }
-  const m = nombre.match(/(\d+)\s*g/i);
-  return m ? parseInt(m[1]) : 0;
+  return 0;
 }
 
 function getMasa(nombre){
