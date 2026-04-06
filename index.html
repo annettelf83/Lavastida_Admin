@@ -239,8 +239,8 @@ function parseMessages(text){
     const pm=c.match(/Tel[eé]fono:\s*(.+)/i);if(pm)o.telefono=pm[1].trim();
     const em=c.match(/Entrega:\s*(.+)/i);if(em)o.entrega=em[1].trim();
     const tam=c.match(/Tasa:\s*1\s*USD\s*=\s*([\d,.]+)\s*CUP/i);if(tam)o.tasa=parseFloat(tam[1].replace(',','.'));
-    // Nuevo formato: - Producto x Qty -- $USD USD (CUP amount)
-    const irNew=/[•\-\*]\s*(.+?)\s*[×xX]\s*(\d+)\s*--\s*\$([\d,.]+)\s*USD\s*\(CUP\s*([\d,.]+)\)/g;let m;
+    // Nuevo formato: - Producto x Qty -- $USD USD (CUP amount c/u = CUP total)
+    const irNew=/[•\-\*]\s*(.+?)\s*[×xX]\s*(\d+)\s*--\s*\$([\d,.]+)\s*USD\s*\(CUP\s*([\d,.]+)(?:\s*c\/u\s*=\s*CUP\s*[\d,.]+)?\)/g;let m;
     while((m=irNew.exec(c))!==null){
       const n=m[1].trim().replace(/\s*[—–]\s*/g,' '),q=parseInt(m[2]);
       const pUSD=parseFloat(m[3].replace(',','.'));
@@ -252,11 +252,15 @@ function parseMessages(text){
       const irOld=/[•\-\*]\s*(.+?)\s*[×xX]\s*(\d+)(?:\s*[—\-–]\s*CUP\s*([\d,\.]+))?/g;
       while((m=irOld.exec(c))!==null){const n=m[1].trim(),q=parseInt(m[2]),p=m[3]?parseInt(m[3].replace(/[,\.]/g,'')):getPrice(n);if(n&&q>0)o.items.push({nombre:n,cantidad:q,precio:p,precioUSD:0});}
     }
-    // Totales
-    const tmNew=c.match(/Total:\s*\$([\d,.]+)\s*USD\s*\(CUP\s*([\d,.]+)\)/i);
-    if(tmNew){
-      o.totalUSD=parseFloat(tmNew[1].replace(',','.'));
-      o.total=parseInt(tmNew[2].replace(/[,\.]/g,''));
+    // Totales — formato: Total: CUP 22.698 ($43.95 USD) o Total: $19.40 USD (CUP 10.020)
+    const tmA=c.match(/Total:\s*CUP\s*([\d,.]+)\s*\(\$([\d,.]+)\s*USD\)/i);
+    const tmB=c.match(/Total:\s*\$([\d,.]+)\s*USD\s*\(CUP\s*([\d,.]+)\)/i);
+    if(tmA){
+      o.total=parseInt(tmA[1].replace(/[,\.]/g,''));
+      o.totalUSD=parseFloat(tmA[2].replace(',','.'));
+    }else if(tmB){
+      o.totalUSD=parseFloat(tmB[1].replace(',','.'));
+      o.total=parseInt(tmB[2].replace(/[,\.]/g,''));
     }else{
       const tmOld=c.match(/Total:\s*CUP\s*([\d,\.]+)/i);
       o.total=tmOld?parseInt(tmOld[1].replace(/[,\.]/g,'')):o.items.reduce((s,it)=>s+it.precio*it.cantidad,0);
