@@ -269,7 +269,7 @@ function parseMessages(text){
   return parsed;
 }
 function todayStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-function fmtCUP(n){return n.toLocaleString('en-US');}
+function fmtCUP(n){return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,',');}
 function fmtUSD(n){return '$'+n.toFixed(2);}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function fmtDate(s){const days=['Dom','Lun','Mar','Miérc','Jue','Vie','Sáb'];const months=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Sept','Oct','Nov','Dic'];const d=new Date(s+'T12:00:00');return days[d.getDay()]+'. '+d.getDate()+' de '+months[d.getMonth()]+', '+d.getFullYear();}
