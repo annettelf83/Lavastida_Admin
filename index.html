@@ -97,44 +97,12 @@ textarea::placeholder{color:#aaa}
 // PRECIOS (CUP por unidad)
 // ============================================================
 const PRECIOS = {
-  // Especiales
-  'Bagel: Everything Bagel': 568,
-  'Bagel: Amapola': 568,
-  'Bagel: Ajonjolí': 568,
-  'Bagel: Avena': 568,
-  'Bagel plain': 517,
-  'Pretzels (cinco)': 2531,
-  'Pretzels': 2531,
-  'Panecillos': 155,
-  'Lacitos': 155,
-  'Venezolano': 2376,
-  'Pan venezolano': 2376,
-  // Dulces
-  'Babka (chocolate)': 2944,
-  'Babka (canela)': 2944,
-  'Cinnamon Roll 100g': 465,
-  'Cinnamon Roll 60g': 362,
-  'Bun Brioche 50g azucarado': 155,
-  // Panes
-  'Baguette 150g': 362,
-  'Baguette 300g': 723,
-  'Baguette 500g': 981,
-  'Bun Brioche 25g': 77,
-  'Bun Brioche 50g': 155,
-  'Bun Brioche 90g': 310,
-  'Bun Brioche 120g': 413,
-  'Molde Brioche': 981,
-  'Challah 160g': 620,
-  'Challah 400g': 981,
-  'Challah 500g': 1136,
-  'Challah 600g': 1550,
-  'Ciabatta 150g': 310,
-  'Ciabatta 300g': 620,
-  'Focaccia 400g': 671,
-  'Hogaza rústica 300g': 568,
-  'Hogaza rústica 500g': 981,
-  'Hogaza rústica 800g': 1446,
-  'Pan Pita': 258,
+  'Bun Brioche 50g azucarado': 140,
+  'Bun Brioche 50g': 140,
+  'Venezolano': 2322,
+  'Pan venezolano': 2322,
+  'Lacitos': 125,
+  'Panecillos': 125,
 };
 
 function getPrice(nombre){
@@ -153,8 +121,8 @@ const MASAS = [
   { nombre:'Challah', productos:['Challah','Cinnamon Roll','Panecillos'] },
   { nombre:'Bagel', productos:['Bagel'] },
   { nombre:'Pretzels', productos:['Pretzels'] },
-  { nombre:'Pan Pita', productos:['Pan Pita'] },
   { nombre:'Venezolano/Cubano', productos:['Venezolano','Cubano','Pan venezolano','Pan cubano'] },
+  { nombre:'Pan Pita', productos:['Pan Pita','Pita'] },
 ];
 
 // Peso por defecto para productos sin gramaje en el nombre
@@ -170,6 +138,7 @@ const PESO_DEFAULT = {
   'Pretzels (cinco)': 500,
   'Bagel': 100,
   'Pan Pita': 100,
+  'Pita': 100,
 };
 
 function getWeight(nombre){
@@ -237,8 +206,8 @@ const FAMILIES={
   'Panecillos':['Panecillos 40g'],
   'Bagel':['Bagel: Everything Bagel','Bagel: Amapola','Bagel: Ajonjolí','Bagel: Avena','Bagel plain'],
   'Pretzels':['Pretzels (cinco)'],
-  'Pan Pita':['Pan Pita'],
   'Venezolano/Cubano':['Venezolano 300g','Cubano 300g','Pan venezolano 300g','Pan cubano 300g'],
+  'Pan Pita':['Pan Pita'],
 };
 
 function sn(nombre){
@@ -276,7 +245,7 @@ function parseMessages(text){
     while((m=irNew.exec(c))!==null){
       const n=m[1].trim().replace(/\s*[—–]\s*/g,' '),q=parseInt(m[2]);
       const pUSD=parseFloat(m[3].replace(',','.'));
-      const pCUP=Math.round(parseFloat(m[4].replace(',','.')));
+      const pCUP=parseInt(m[4].replace(/[,\.]/g,''));
       if(n&&q>0)o.items.push({nombre:n,cantidad:q,precio:pCUP,precioUSD:pUSD});
     }
     // Formato anterior: - Producto × Qty — CUP amount
@@ -288,7 +257,7 @@ function parseMessages(text){
     const tmNew=c.match(/Total:\s*\$([\d,.]+)\s*USD\s*\(CUP\s*([\d,.]+)\)/i);
     if(tmNew){
       o.totalUSD=parseFloat(tmNew[1].replace(',','.'));
-      o.total=Math.round(parseFloat(tmNew[2].replace(',','.')));
+      o.total=parseInt(tmNew[2].replace(/[,\.]/g,''));
     }else{
       const tmOld=c.match(/Total:\s*CUP\s*([\d,\.]+)/i);
       o.total=tmOld?parseInt(tmOld[1].replace(/[,\.]/g,'')):o.items.reduce((s,it)=>s+it.precio*it.cantidad,0);
@@ -299,7 +268,7 @@ function parseMessages(text){
   return parsed;
 }
 function todayStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-function fmtCUP(n){return n.toLocaleString('es');}
+function fmtCUP(n){return n.toLocaleString('en-US');}
 function fmtUSD(n){return '$'+n.toFixed(2);}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function fmtDate(s){const days=['Dom','Lun','Mar','Miérc','Jue','Vie','Sáb'];const months=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Sept','Oct','Nov','Dic'];const d=new Date(s+'T12:00:00');return days[d.getDay()]+'. '+d.getDate()+' de '+months[d.getMonth()]+', '+d.getFullYear();}
