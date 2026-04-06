@@ -127,7 +127,6 @@ const MASAS = [
 
 // Peso por defecto para productos sin gramaje en el nombre
 const PESO_DEFAULT = {
-  'Babka': 500,
   'Babka (chocolate)': 500,
   'Babka (canela)': 500,
   'Molde Brioche': 600,
@@ -137,28 +136,26 @@ const PESO_DEFAULT = {
   'Pan cubano': 300,
   'Pretzels': 500,
   'Pretzels (cinco)': 500,
-  'Focaccia': 400,
   'Bagel': 100,
   'Pan Pita': 100,
   'Pita': 100,
 };
 
 function getWeight(nombre){
-  const n=norm(nombre);
+  const n=nombre.trim().toLowerCase();
   for(const[key,val] of Object.entries(PESO_DEFAULT)){
-    if(n.startsWith(norm(key))) return val;
+    if(n.startsWith(key.toLowerCase())) return val;
   }
   const m = nombre.match(/(\d+)\s*g/i);
   return m ? parseInt(m[1]) : 0;
 }
 
-function norm(s){return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
-
 function getMasa(nombre){
-  const n=norm(nombre);
+  const n=nombre.trim().toLowerCase();
   for(const masa of MASAS){
     for(const prefix of masa.productos){
-      if(n.startsWith(norm(prefix))||n.includes(norm(prefix))) return masa.nombre;
+      const p=prefix.toLowerCase();
+      if(n.startsWith(p)||n.includes(p)) return masa.nombre;
     }
   }
   return null;
@@ -177,8 +174,8 @@ function calcMasas(prod){
   }
   for(const masa of MASAS){
     result[masa.nombre].items.sort((a,b)=>{
-      const ai=masa.productos.findIndex(p=>norm(a.nombre).startsWith(norm(p)));
-      const bi=masa.productos.findIndex(p=>norm(b.nombre).startsWith(norm(p)));
+      const ai=masa.productos.findIndex(p=>a.nombre.trim().toLowerCase().startsWith(p.toLowerCase()));
+      const bi=masa.productos.findIndex(p=>b.nombre.trim().toLowerCase().startsWith(p.toLowerCase()));
       if(ai!==bi) return ai-bi;
       return a.peso-b.peso;
     });
@@ -187,8 +184,7 @@ function calcMasas(prod){
 }
 
 function fmtG(g){
-  if(g>=1000) return (g/1000).toFixed(1).replace('.0','') + ' kg';
-  return g.toLocaleString('es') + ' g';
+  return g.toString().replace(/\B(?=(\d{3})+(?!\d))/g,',') + ' g';
 }
 function fmtGnum(g){ return g.toLocaleString('es'); }
 
@@ -271,7 +267,7 @@ function parseMessages(text){
   return parsed;
 }
 function todayStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-function fmtCUP(n){return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,',');}
+function fmtCUP(n){return n.toLocaleString('en-US');}
 function fmtUSD(n){return '$'+n.toFixed(2);}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function fmtDate(s){const days=['Dom','Lun','Mar','Miérc','Jue','Vie','Sáb'];const months=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Sept','Oct','Nov','Dic'];const d=new Date(s+'T12:00:00');return days[d.getDay()]+'. '+d.getDate()+' de '+months[d.getMonth()]+', '+d.getFullYear();}
