@@ -143,20 +143,21 @@ const PESO_DEFAULT = {
 };
 
 function getWeight(nombre){
-  const n=nombre.trim().toLowerCase();
+  const n=norm(nombre);
   for(const[key,val] of Object.entries(PESO_DEFAULT)){
-    if(n.startsWith(key.toLowerCase())) return val;
+    if(n.startsWith(norm(key))) return val;
   }
   const m = nombre.match(/(\d+)\s*g/i);
   return m ? parseInt(m[1]) : 0;
 }
 
+function norm(s){return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
+
 function getMasa(nombre){
-  const n=nombre.trim().toLowerCase();
+  const n=norm(nombre);
   for(const masa of MASAS){
     for(const prefix of masa.productos){
-      const p=prefix.toLowerCase();
-      if(n.startsWith(p)||n.includes(p)) return masa.nombre;
+      if(n.startsWith(norm(prefix))||n.includes(norm(prefix))) return masa.nombre;
     }
   }
   return null;
@@ -175,8 +176,8 @@ function calcMasas(prod){
   }
   for(const masa of MASAS){
     result[masa.nombre].items.sort((a,b)=>{
-      const ai=masa.productos.findIndex(p=>a.nombre.trim().toLowerCase().startsWith(p.toLowerCase()));
-      const bi=masa.productos.findIndex(p=>b.nombre.trim().toLowerCase().startsWith(p.toLowerCase()));
+      const ai=masa.productos.findIndex(p=>norm(a.nombre).startsWith(norm(p)));
+      const bi=masa.productos.findIndex(p=>norm(b.nombre).startsWith(norm(p)));
       if(ai!==bi) return ai-bi;
       return a.peso-b.peso;
     });
