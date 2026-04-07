@@ -68,7 +68,9 @@ textarea::placeholder{color:#aaa}
   .grand{display:flex;justify-content:space-between;padding:10px 0;margin-top:8px;border-top:2px solid #000;font-weight:bold;font-size:16px}
   .cl{margin-bottom:10px;padding-bottom:8px;border-bottom:1px dotted #ccc}
   .cln{font-weight:bold;font-size:13px;margin-bottom:2px}
-  .ctag{font-size:9px;font-family:sans-serif;margin-left:8px;padding:1px 6px;border:1px solid #999;border-radius:8px;font-weight:normal;text-transform:uppercase;letter-spacing:.5px}
+  .ctag{font-size:9px;font-family:sans-serif;margin-left:8px;padding:2px 8px;border-radius:8px;font-weight:bold;text-transform:uppercase;letter-spacing:.5px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .ctag.msg{background:#000;color:#fff}
+  .ctag.recoge{background:#fff;color:#000;border:1px solid #000}
   .cli{font-size:12px;padding-left:12px;color:#333;line-height:1.6}
   .clt{text-align:right;font-weight:bold;font-size:13px;margin-top:3px;color:#2F5233}
 }
@@ -395,7 +397,7 @@ function genPDFPedidos(){
   today.forEach(o=>{
     const isMsg=o.entrega&&o.entrega.toLowerCase().includes('mensajería')&&!o.entrega.toLowerCase().includes('sin');
     h+=`<div class="cl">`;
-    h+=`<div class="cln">${esc(o.cliente)}${o.telefono?' <span style="font-weight:normal;font-size:11px;color:#666">'+esc(o.telefono)+'</span>':''}<span class="ctag">${isMsg?'mensajería':'recoge'}</span></div>`;
+    h+=`<div class="cln">${esc(o.cliente)}${o.telefono?' <span style="font-weight:normal;font-size:11px;color:#666">'+esc(o.telefono)+'</span>':''}<span class="ctag ${isMsg?'msg':'recoge'}">${isMsg?'mensajería':'recoge'}</span></div>`;
     o.items.forEach(it=>{
       let line=it.cantidad+'× '+esc(it.nombre);
       if(it.precioUSD>0)line+=' — '+fmtUSD(it.precioUSD)+' ('+fmtCUP(it.precio)+' CUP)';
