@@ -158,21 +158,49 @@ const PESO_DEFAULT = {
   'Pita': 100,
 };
 
+function norm(s){return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();}
+
+function canonicalName(nombre){
+  const n=norm(nombre);
+  for(const fam of Object.values(FAMILIES)){
+    for(const oficial of fam){
+      if(norm(oficial)===n) return oficial;
+    }
+  }
+  // Si no es exacto, intenta hacer match con tipo + gramaje
+  const m=nombre.match(/(\d+)\s*g/i);
+  if(m){
+    const peso=m[1];
+    for(const fam of Object.values(FAMILIES)){
+      for(const oficial of fam){
+        const om=oficial.match(/(\d+)\s*g/i);
+        if(om&&om[1]===peso){
+          // mismo gramaje — comparar prefijo (sin gramaje) sin tildes
+          const prefOficial=norm(oficial.replace(/\s*\d+\s*g.*/i,''));
+          const prefNombre=norm(nombre.replace(/\s*\d+\s*g.*/i,''));
+          if(prefOficial===prefNombre||prefNombre.startsWith(prefOficial)||prefOficial.startsWith(prefNombre)) return oficial;
+        }
+      }
+    }
+  }
+  return nombre;
+}
+
 function getWeight(nombre){
   const m = nombre.match(/(\d+)\s*g/i);
   if(m) return parseInt(m[1]);
-  const n=nombre.trim().toLowerCase();
+  const n=norm(nombre);
   for(const[key,val] of Object.entries(PESO_DEFAULT)){
-    if(n.startsWith(key.toLowerCase())) return val;
+    if(n.startsWith(norm(key))) return val;
   }
   return 0;
 }
 
 function getMasa(nombre){
-  const n=nombre.trim().toLowerCase();
+  const n=norm(nombre);
   for(const masa of MASAS){
     for(const prefix of masa.productos){
-      const p=prefix.toLowerCase();
+      const p=norm(prefix);
       if(n.startsWith(p)||n.includes(p)) return masa.nombre;
     }
   }
@@ -192,8 +220,8 @@ function calcMasas(prod){
   }
   for(const masa of MASAS){
     result[masa.nombre].items.sort((a,b)=>{
-      const ai=masa.productos.findIndex(p=>a.nombre.trim().toLowerCase().startsWith(p.toLowerCase()));
-      const bi=masa.productos.findIndex(p=>b.nombre.trim().toLowerCase().startsWith(p.toLowerCase()));
+      const ai=masa.productos.findIndex(p=>norm(a.nombre).startsWith(norm(p)));
+      const bi=masa.productos.findIndex(p=>norm(b.nombre).startsWith(norm(p)));
       if(ai!==bi) return ai-bi;
       return a.peso-b.peso;
     });
@@ -334,7 +362,7 @@ function renderOrders(){
   $('orders-display').innerHTML=h;
 }
 
-function getProduction(){const today=orders.filter(o=>o.fecha===todayStr()),prod={};today.forEach(o=>o.items.forEach(it=>{prod[it.nombre]=(prod[it.nombre]||0)+it.cantidad;}));return prod;}
+function getProduction(){const today=orders.filter(o=>o.fecha===todayStr()),prod={};today.forEach(o=>o.items.forEach(it=>{const k=canonicalName(it.nombre);prod[k]=(prod[k]||0)+it.cantidad;}));return prod;}
 function render(){if(tab==='prod')renderProd();else if(tab==='export')renderExport();}
 
 function renderProd(){
