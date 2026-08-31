@@ -162,7 +162,7 @@ const PESO_DEFAULT = {
 // (*negrita* _cursiva_ ~tachado~), espacios raros y espacios repetidos.
 function clean(s){
   return String(s)
-    .replace(/[\u200b-\u200f\u2028\u2029\ufeff]/g,'')
+    .replace(/[\p{Cf}\p{Cc}]/gu,'')
     .replace(/[\u00a0\u202f\u2007]/g,' ')
     .replace(/^[\s*_~`"'\u2022\u00b7\-]+|[\s*_~`"']+$/g,'')
     .replace(/\s+/g,' ')
@@ -185,14 +185,21 @@ function esMensajeria(o){
   return typeof o.mensajeria==='boolean' ? o.mensajeria : detectaMensajeria(o.entrega);
 }
 
+// Identidad de un producto: solo letras y numeros. 'Babka (canela)',
+// 'Babka Canela' y 'babka-canela.' dan todos el mismo slug, asi que
+// no pueden quedar como dos filas separadas.
+function slug(s){return norm(clean(s)).replace(/[^a-z0-9]/g,'');}
+
 function norm(s){return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();}
 
 function canonicalName(nombre){
   nombre=clean(nombre);
-  const n=norm(nombre);
+  const n=norm(nombre),sg=slug(nombre);
+  // Coincidencia por slug: ignora tildes, parentesis, puntos y mayusculas,
+  // asi 'Babka Canela' cae en el oficial 'Babka (canela)'.
   for(const fam of Object.values(FAMILIES)){
     for(const oficial of fam){
-      if(norm(oficial)===n) return oficial;
+      if(slug(oficial)===sg) return oficial;
     }
   }
   // Si no es exacto, intenta hacer match con tipo + gramaje
@@ -210,6 +217,30 @@ function canonicalName(nombre){
         }
       }
     }
+  }
+  // Ultimo intento: el nombre trae palabras de mas ('Pan Molde Brioche').
+  // Solo para productos sin gramaje, y gana el oficial mas largo.
+  if(!/\d/.test(sg)){
+    let best=null,bestLen=0;
+    for(const fam of Object.values(FAMILIES)){
+      for(const oficial of fam){
+        const og=slug(oficial);
+        if(/\d/.test(og)||og.length<4) continue;
+        if(sg.includes(og)&&og.length>bestLen){best=oficial;bestLen=og.length;}
+      }
+    }
+    if(best) return best;
+    // Caso inverso: el nombre es mas corto que el oficial ('Pretzels' ->
+    // 'Pretzels (cinco)'). Solo se acepta si UN unico oficial encaja, para
+    // no convertir 'Bagel' a secas en un sabor concreto al azar.
+    const cand=[];
+    for(const fam of Object.values(FAMILIES)){
+      for(const oficial of fam){
+        const og=slug(oficial);
+        if(sg.length>=4&&og.startsWith(sg)) cand.push(oficial);
+      }
+    }
+    if(cand.length===1) return cand[0];
   }
   return nombre;
 }
@@ -407,7 +438,17 @@ function renderOrders(){
   $('orders-display').innerHTML=h;
 }
 
-function getProduction(){const today=orders.filter(o=>o.fecha===todayStr()),prod={};today.forEach(o=>o.items.forEach(it=>{const k=canonicalName(it.nombre);prod[k]=(prod[k]||0)+it.cantidad;}));return prod;}
+function getProduction(){
+  const today=orders.filter(o=>o.fecha===todayStr()),prod={},porSlug={};
+  today.forEach(o=>o.items.forEach(it=>{
+    const k=canonicalName(it.nombre),sg=slug(k);
+    // Si dos nombres comparten slug se suman bajo la primera grafia vista,
+    // aunque ninguno haya coincidido con el catalogo.
+    const key=porSlug[sg]||(porSlug[sg]=k);
+    prod[key]=(prod[key]||0)+it.cantidad;
+  }));
+  return prod;
+}
 function render(){if(tab==='prod')renderProd();else if(tab==='export')renderExport();}
 
 function renderProd(){
