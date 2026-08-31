@@ -220,7 +220,8 @@ function canonicalName(nombre){
   }
   // Ultimo intento: el nombre trae palabras de mas ('Pan Molde Brioche').
   // Solo para productos sin gramaje, y gana el oficial mas largo.
-  if(!/\d/.test(sg)){
+  // "Sin gramaje" = sin un peso tipo '500g'; un '(x5 uds)' no cuenta.
+  if(!/\d+\s*g\b/i.test(nombre)){
     let best=null,bestLen=0;
     for(const fam of Object.values(FAMILIES)){
       for(const oficial of fam){
@@ -241,6 +242,13 @@ function canonicalName(nombre){
       }
     }
     if(cand.length===1) return cand[0];
+    // Familias de un solo producto: cualquier variante del nombre de la familia
+    // cae en su unico miembro, asi 'Pretzels (x5 uds)' y 'Pretzels (cinco)'
+    // son el mismo pan.
+    for(const[fam,miembros] of Object.entries(FAMILIES)){
+      const fg=slug(fam);
+      if(miembros.length===1&&fg.length>=4&&sg.startsWith(fg)) return miembros[0];
+    }
   }
   return nombre;
 }
@@ -362,7 +370,10 @@ function parseMessages(text){
     if(!o.entrega&&dm)o.entrega='Mensajería — '+clean(dm[1]);
     const tam=c.match(/Tasa:\s*1\s*USD\s*=\s*([\d,.]+)\s*CUP/i);if(tam)o.tasa=parseFloat(tam[1].replace(',','.'));
     // Nuevo formato: - Producto x Qty -- $USD USD (CUP amount c/u = CUP total)
-    const irNew=/[•\-\*]\s*(.+?)\s*[×xX]\s*(\d+)\s*--\s*\$([\d,.]+)\s*USD\s*\(CUP\s*([\d,.]+)(?:\s*c\/u\s*=\s*CUP\s*[\d,.]+)?\)/g;let m;
+    // El nombre es codicioso a proposito: se queda con la ULTIMA "× N" de la
+    // linea. Si fuera perezoso, "Pretzels (x5 uds) × 1" se leeria como
+    // "Pretzels (" con cantidad 5.
+    const irNew=/[•\-\*]\s*(.+)\s*[×xX]\s*(\d+)\s*--\s*\$([\d,.]+)\s*USD\s*\(CUP\s*([\d,.]+)(?:\s*c\/u\s*=\s*CUP\s*[\d,.]+)?\)/g;let m;
     while((m=irNew.exec(c))!==null){
       const n=clean(m[1].replace(/\s*[—–]\s*/g,' ')),q=parseInt(m[2]);
       const pUSD=parseFloat(m[3].replace(',','.'));
@@ -371,7 +382,7 @@ function parseMessages(text){
     }
     // Formato anterior: - Producto × Qty — CUP amount
     if(!o.items.length){
-      const irOld=/[•\-\*]\s*(.+?)\s*[×xX]\s*(\d+)(?:\s*[—\-–]\s*CUP\s*([\d,\.]+))?/g;
+      const irOld=/[•\-\*]\s*(.+)\s*[×xX]\s*(\d+)(?:\s*[—\-–]\s*CUP\s*([\d,\.]+))?/g;
       while((m=irOld.exec(c))!==null){const n=clean(m[1]),q=parseInt(m[2]),p=m[3]?parseInt(m[3].replace(/[,\.]/g,'')):getPrice(n);if(n&&q>0)o.items.push({nombre:n,cantidad:q,precio:p,precioUSD:0});}
     }
     // Totales — formato: Total: CUP 22.698 ($43.95 USD) o Total: $19.40 USD (CUP 10.020)
