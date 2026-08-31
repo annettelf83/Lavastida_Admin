@@ -158,9 +158,37 @@ const PESO_DEFAULT = {
   'Pita': 100,
 };
 
+// Limpia nombres: caracteres invisibles (zero-width, BOM), marcado de WhatsApp
+// (*negrita* _cursiva_ ~tachado~), espacios raros y espacios repetidos.
+function clean(s){
+  return String(s)
+    .replace(/[\u200b-\u200f\u2028\u2029\ufeff]/g,'')
+    .replace(/[\u00a0\u202f\u2007]/g,' ')
+    .replace(/^[\s*_~`"'\u2022\u00b7\-]+|[\s*_~`"']+$/g,'')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+
+// Decide si un pedido es a domicilio. Insensible a tildes/mayusculas.
+// 'txt' puede ser la linea "Entrega:" o el mensaje completo.
+const RE_NO_MSG=/\b(sin\s+mensajer|recog|pick\s?-?up|en\s+tienda|en\s+local|en\s+la\s+panaderia|paso\s+a\s+buscar|lo\s+busco|retir)/;
+const RE_SI_MSG=/(mensajer|domicilio|delivery|reparto|a\s+casa|env[ií]?o|enviar|direccion|calle\s)/;
+function detectaMensajeria(txt){
+  if(!txt) return false;
+  const t=norm(clean(txt));
+  if(RE_NO_MSG.test(t)) return false;
+  return RE_SI_MSG.test(t);
+}
+// Un pedido guardado antes de este arreglo no tiene el campo .mensajeria:
+// en ese caso se vuelve a deducir del texto de "Entrega:".
+function esMensajeria(o){
+  return typeof o.mensajeria==='boolean' ? o.mensajeria : detectaMensajeria(o.entrega);
+}
+
 function norm(s){return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();}
 
 function canonicalName(nombre){
+  nombre=clean(nombre);
   const n=norm(nombre);
   for(const fam of Object.values(FAMILIES)){
     for(const oficial of fam){
@@ -189,15 +217,19 @@ function canonicalName(nombre){
 function getWeight(nombre){
   const m = nombre.match(/(\d+)\s*g/i);
   if(m) return parseInt(m[1]);
-  const n=norm(nombre);
+  const n=norm(clean(nombre));
+  // Busca por subcadena (no solo prefijo) y gana la clave mas larga:
+  // asi 'Bun Brioche Azucarado' vence a 'Bun Brioche' sin depender del orden.
+  let best=0,bestLen=0;
   for(const[key,val] of Object.entries(PESO_DEFAULT)){
-    if(n.startsWith(norm(key))) return val;
+    const k=norm(key);
+    if(n.includes(k)&&k.length>bestLen){best=val;bestLen=k.length;}
   }
-  return 0;
+  return best;
 }
 
 function getMasa(nombre){
-  const n=norm(nombre);
+  const n=norm(clean(nombre));
   for(const masa of MASAS){
     for(const prefix of masa.productos){
       const p=norm(prefix);
@@ -220,8 +252,8 @@ function calcMasas(prod){
   }
   for(const masa of MASAS){
     result[masa.nombre].items.sort((a,b)=>{
-      const ai=masa.productos.findIndex(p=>norm(a.nombre).startsWith(norm(p)));
-      const bi=masa.productos.findIndex(p=>norm(b.nombre).startsWith(norm(p)));
+      const idx=x=>{const i=masa.productos.findIndex(p=>norm(clean(x)).includes(norm(p)));return i<0?999:i;};
+      const ai=idx(a.nombre),bi=idx(b.nombre);
       if(ai!==bi) return ai-bi;
       return a.peso-b.peso;
     });
@@ -267,6 +299,8 @@ function sn(nombre){
 // ============================================================
 let orders=[];
 try{const s=localStorage.getItem('lav-p7');if(s)orders=JSON.parse(s);}catch(e){}
+// Limpia pedidos ya guardados (nombres con caracteres invisibles o marcado de WhatsApp)
+try{orders.forEach(o=>{o.cliente=clean(o.cliente);o.entrega=clean(o.entrega);o.items.forEach(it=>{it.nombre=clean(it.nombre);});});}catch(e){}
 function save(){try{localStorage.setItem('lav-p7',JSON.stringify(orders));}catch(e){}}
 const $=id=>document.getElementById(id);
 let tab='input';
@@ -281,14 +315,25 @@ function parseMessages(text){
   const chunks=text.split(/Hola Lavastida,?\s*quiero este pedido:/i),parsed=[];
   for(let i=1;i<chunks.length;i++){
     const c=chunks[i],o={id:Date.now()+i,items:[],cliente:'',telefono:'',entrega:'',total:0,totalUSD:0,tasa:0,fecha:todayStr()};
-    const cm=c.match(/Cliente:\s*(.+)/i);if(cm)o.cliente=cm[1].trim();
-    const pm=c.match(/Tel[eé]fono:\s*(.+)/i);if(pm)o.telefono=pm[1].trim();
-    const em=c.match(/Entrega:\s*(.+)/i);if(em)o.entrega=em[1].trim();
+    const cm=c.match(/Cliente:\s*(.+)/i);if(cm)o.cliente=clean(cm[1]);
+    const pm=c.match(/Tel[eé]fono:\s*(.+)/i);if(pm)o.telefono=clean(pm[1]);
+    // "Entrega:", pero tambien "Envío:", "Tipo de entrega:", "Modalidad:"
+    const em=c.match(/(?:Entrega|Env[ií]o|Tipo de entrega|Modalidad|Forma de entrega):\s*(.+)/i);
+    if(em)o.entrega=clean(em[1]);
+    // Si la linea de entrega no lo aclara, se mira el mensaje completo:
+    // una "Direccion:" o un cargo de mensajeria implican domicilio.
+    const dm=c.match(/(?:Direcci[oó]n|Domicilio|Reparto|Municipio):\s*(.+)/i);
+    o.mensajeria = detectaMensajeria(o.entrega)
+      || (!!dm && !RE_NO_MSG.test(norm(clean(o.entrega))))
+      || /mensajer[ií]a\s*:?\s*(?:CUP\s*)?[\d$]/i.test(c)
+      // Ultimo recurso: sin linea de entrega ni direccion, se mira todo el mensaje.
+      || (!em && !dm && detectaMensajeria(c));
+    if(!o.entrega&&dm)o.entrega='Mensajería — '+clean(dm[1]);
     const tam=c.match(/Tasa:\s*1\s*USD\s*=\s*([\d,.]+)\s*CUP/i);if(tam)o.tasa=parseFloat(tam[1].replace(',','.'));
     // Nuevo formato: - Producto x Qty -- $USD USD (CUP amount c/u = CUP total)
     const irNew=/[•\-\*]\s*(.+?)\s*[×xX]\s*(\d+)\s*--\s*\$([\d,.]+)\s*USD\s*\(CUP\s*([\d,.]+)(?:\s*c\/u\s*=\s*CUP\s*[\d,.]+)?\)/g;let m;
     while((m=irNew.exec(c))!==null){
-      const n=m[1].trim().replace(/\s*[—–]\s*/g,' '),q=parseInt(m[2]);
+      const n=clean(m[1].replace(/\s*[—–]\s*/g,' ')),q=parseInt(m[2]);
       const pUSD=parseFloat(m[3].replace(',','.'));
       const pCUP=parseInt(m[4].replace(/[,\.]/g,''));
       if(n&&q>0)o.items.push({nombre:n,cantidad:q,precio:pCUP,precioUSD:pUSD});
@@ -296,7 +341,7 @@ function parseMessages(text){
     // Formato anterior: - Producto × Qty — CUP amount
     if(!o.items.length){
       const irOld=/[•\-\*]\s*(.+?)\s*[×xX]\s*(\d+)(?:\s*[—\-–]\s*CUP\s*([\d,\.]+))?/g;
-      while((m=irOld.exec(c))!==null){const n=m[1].trim(),q=parseInt(m[2]),p=m[3]?parseInt(m[3].replace(/[,\.]/g,'')):getPrice(n);if(n&&q>0)o.items.push({nombre:n,cantidad:q,precio:p,precioUSD:0});}
+      while((m=irOld.exec(c))!==null){const n=clean(m[1]),q=parseInt(m[2]),p=m[3]?parseInt(m[3].replace(/[,\.]/g,'')):getPrice(n);if(n&&q>0)o.items.push({nombre:n,cantidad:q,precio:p,precioUSD:0});}
     }
     // Totales — formato: Total: CUP 22.698 ($43.95 USD) o Total: $19.40 USD (CUP 10.020)
     const tmA=c.match(/Total:\s*CUP\s*([\d,.]+)\s*\(\$([\d,.]+)\s*USD\)/i);
@@ -346,7 +391,7 @@ function renderOrders(){
     const dtUSD=d.reduce((s,o)=>s+(o.totalUSD||0),0);
     h+=`<div style="font-size:11px;color:#999;margin:12px 0 6px;display:flex;justify-content:space-between"><span>${f===todayStr()?'HOY':f}</span><span>${dtUSD>0?fmtUSD(dtUSD)+' / ':''}${fmtCUP(dt)} CUP</span></div>`;
     d.forEach(o=>{
-      const isMsg=o.entrega&&o.entrega.toLowerCase().includes('mensajería')&&!o.entrega.toLowerCase().includes('sin');
+      const isMsg=esMensajeria(o);
       const hasUSD=o.totalUSD>0;
       const itemsHtml=o.items.map(it=>{
         let line=it.cantidad+'× '+esc(it.nombre);
@@ -423,7 +468,7 @@ function genPDFPedidos(){
   // --- Por cliente ---
   h+=`<div>`;
   today.forEach(o=>{
-    const isMsg=o.entrega&&o.entrega.toLowerCase().includes('mensajería')&&!o.entrega.toLowerCase().includes('sin');
+    const isMsg=esMensajeria(o);
     h+=`<div class="cl">`;
     h+=`<div class="cln">${esc(o.cliente)}${o.telefono?' <span style="font-weight:normal;font-size:11px;color:#666">'+esc(o.telefono)+'</span>':''}<span class="ctag ${isMsg?'msg':'recoge'}">${isMsg?'mensajería':'recoge'}</span></div>`;
     o.items.forEach(it=>{
