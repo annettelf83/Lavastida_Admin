@@ -66,6 +66,7 @@ textarea::placeholder{color:#aaa}
   .sl .sn{flex:1}
   .sl .sg{width:100px;text-align:right;font-weight:bold}
   .grand{display:flex;justify-content:space-between;padding:10px 0;margin-top:8px;border-top:2px solid #000;font-weight:bold;font-size:16px}
+  .cld{font-weight:bold;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:14px 0 6px;padding-bottom:3px;border-bottom:1px solid #000}
   .cl{margin-bottom:10px;padding-bottom:8px;border-bottom:1px dotted #ccc}
   .cln{font-weight:bold;font-size:13px;margin-bottom:2px}
   .ctag{font-size:9px;font-family:sans-serif;margin-left:8px;padding:2px 8px;border-radius:8px;font-weight:bold;text-transform:uppercase;letter-spacing:.5px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -404,6 +405,33 @@ function parseMessages(text){
   return parsed;
 }
 function todayStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+
+// ============================================================
+// VENTANA DE TRABAJO — 72 horas
+// Nada se borra nunca: los pedidos viejos siguen en localStorage y en la
+// lista de "Pegar pedidos". Esta ventana solo decide que entra en la hoja
+// de produccion y en los PDF.
+// ============================================================
+// o.id es Date.now() del momento en que se pego el pedido: sirve para
+// ordenarlos. Si faltara, se usa el mediodia de la fecha guardada.
+function tsPedido(o){
+  if(typeof o.id==='number'&&o.id>1e12) return o.id;
+  const d=new Date((o.fecha||todayStr())+'T12:00:00');
+  return isNaN(d)?0:d.getTime();
+}
+// TODOS los pedidos guardados siguen activos hasta que se borran a mano.
+// Un pedido que entra el viernes para el lunes tiene que seguir saliendo en
+// el PDF el sabado y el domingo, asi que aqui no se filtra por fecha.
+function pedidosActivos(){
+  return orders.slice().sort((a,b)=>tsPedido(a)-tsPedido(b));
+}
+// Encabezado de fecha: un solo dia o un rango, segun lo que haya.
+function rangoFechas(lista){
+  const fechas=[...new Set(lista.map(o=>o.fecha))].sort();
+  if(!fechas.length) return fmtDate(todayStr());
+  if(fechas.length===1) return fmtDate(fechas[0]);
+  return fmtDate(fechas[0])+' — '+fmtDate(fechas[fechas.length-1]);
+}
 function fmtCUP(n){return n.toLocaleString('en-US');}
 function fmtUSD(n){return '$'+n.toFixed(2);}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -419,19 +447,26 @@ function addOrders(){
   renderOrders();
 }
 function removeOrder(id){orders=orders.filter(o=>o.id!==id);save();renderOrders();render();}
+// Vaciar un dia completo de una vez, sin ir pedido por pedido.
+function removeDay(f){
+  const n=orders.filter(o=>o.fecha===f).length;
+  if(!confirm('¿Borrar los '+n+' pedido'+(n!==1?'s':'')+' del '+f+'?')) return;
+  orders=orders.filter(o=>o.fecha!==f);save();renderOrders();render();
+}
 
 function renderOrders(){
-  const today=orders.filter(o=>o.fecha===todayStr()),total=today.reduce((s,o)=>s+o.total,0);
+  const today=pedidosActivos(),total=today.reduce((s,o)=>s+o.total,0);
   if(!orders.length){$('day-counter').classList.add('hidden');$('orders-display').innerHTML='';return;}
   $('day-counter').classList.remove('hidden');
   const totalUSD=today.reduce((s,o)=>s+(o.totalUSD||0),0);
-  $('day-count').textContent=today.length+' pedido'+(today.length!==1?'s':'')+' hoy';
+  $('day-count').textContent=today.length+' pedido'+(today.length!==1?'s':'')+' activo'+(today.length!==1?'s':'');
   $('day-total').textContent=totalUSD>0?fmtUSD(totalUSD)+' / '+fmtCUP(total)+' CUP':fmtCUP(total)+' CUP';
   let h='';const byDate={};orders.forEach(o=>{if(!byDate[o.fecha])byDate[o.fecha]=[];byDate[o.fecha].push(o);});
   Object.keys(byDate).sort().reverse().forEach(f=>{
     const d=byDate[f],dt=d.reduce((s,o)=>s+o.total,0);
     const dtUSD=d.reduce((s,o)=>s+(o.totalUSD||0),0);
-    h+=`<div style="font-size:11px;color:#999;margin:12px 0 6px;display:flex;justify-content:space-between"><span>${f===todayStr()?'HOY':f}</span><span>${dtUSD>0?fmtUSD(dtUSD)+' / ':''}${fmtCUP(dt)} CUP</span></div>`;
+    // Boton para vaciar un dia entero, que es como se limpia despues de hornear.
+    h+=`<div style="font-size:11px;color:#999;margin:12px 0 6px;display:flex;justify-content:space-between;align-items:center"><span>${f===todayStr()?'HOY':f} <span style="cursor:pointer;color:#c0392b;margin-left:6px" onclick="removeDay('${f}')">borrar día</span></span><span>${dtUSD>0?fmtUSD(dtUSD)+' / ':''}${fmtCUP(dt)} CUP</span></div>`;
     d.forEach(o=>{
       const isMsg=esMensajeria(o);
       const hasUSD=o.totalUSD>0;
@@ -450,7 +485,7 @@ function renderOrders(){
 }
 
 function getProduction(){
-  const today=orders.filter(o=>o.fecha===todayStr()),prod={},porSlug={};
+  const today=pedidosActivos(),prod={},porSlug={};
   today.forEach(o=>o.items.forEach(it=>{
     const k=canonicalName(it.nombre),sg=slug(k);
     // Si dos nombres comparten slug se suman bajo la primera grafia vista,
@@ -464,7 +499,7 @@ function render(){if(tab==='prod')renderProd();else if(tab==='export')renderExpo
 
 function renderProd(){
   const el=$('v-prod'),prod=getProduction(),masas=calcMasas(prod);
-  let h=`<div class="stitle">Producción del día</div><div class="ssub">Por tipo de masa</div>`;
+  let h=`<div class="stitle">Producción</div><div class="ssub">Por tipo de masa — todos los pedidos activos</div>`;
   if(!Object.keys(prod).length){h+=`<div class="empty">Sin pedidos</div>`;el.innerHTML=h;return;}
   for(const masa of MASAS){
     const m=masas[masa.nombre];
@@ -477,20 +512,20 @@ function renderProd(){
   for(const[nombre,q]of Object.entries(prod)){
     if(!getMasa(nombre)){h+=`<div class="prod-table"><div class="th"><span>${esc(nombre)}</span><span>${q}</span></div></div><div style="height:10px"></div>`;}
   }
-  const today=orders.filter(o=>o.fecha===todayStr());
+  const today=pedidosActivos();
   h+=`<div style="margin-top:16px"><div class="ssub">Por cliente</div>`;
-  today.forEach(o=>{h+=`<div class="detail-card"><div class="dn">${esc(o.cliente)}</div><div class="di">${o.items.map(it=>it.cantidad+'× '+esc(it.nombre)).join('<br>')}</div></div>`;});
+  today.forEach(o=>{h+=`<div class="detail-card"><div class="dn">${esc(o.cliente)}<span style="font-weight:normal;font-size:10px;color:#999;margin-left:6px">${o.fecha===todayStr()?'hoy':o.fecha}</span></div><div class="di">${o.items.map(it=>it.cantidad+'× '+esc(it.nombre)).join('<br>')}</div></div>`;});
   h+=`</div>`;
   el.innerHTML=h;
 }
 
 function renderExport(){
   const el=$('v-export'),prod=getProduction(),masas=calcMasas(prod);
-  let h=`<div class="stitle">Hoja de producción</div><div class="ssub">Previsualización del PDF</div>`;
+  let h=`<div class="stitle">Hoja de producción</div><div class="ssub">Previsualización del PDF — todos los pedidos activos</div>`;
   if(!Object.keys(prod).length){h+=`<div class="empty">Sin pedidos</div>`;el.innerHTML=h;return;}
   h+=`<div style="background:white;border:1px solid #ddd;border-radius:10px;padding:14px;margin-bottom:12px">`;
   h+=`<div style="text-align:center;font-weight:bold;font-size:14px;letter-spacing:2px;margin-bottom:6px">LAVASTIDA</div>`;
-  h+=`<div style="text-align:center;font-size:12px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #ddd">${fmtDate(todayStr())}</div>`;
+  h+=`<div style="text-align:center;font-size:12px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #ddd">${rangoFechas(pedidosActivos())}</div>`;
   for(const masa of MASAS){
     const m=masas[masa.nombre];
     if(!m.items.length)continue;
@@ -515,11 +550,16 @@ function renderExport(){
 }
 
 function genPDFPedidos(){
-  const today=orders.filter(o=>o.fecha===todayStr());
-  let h=`<div class="pt">LAVASTIDA</div><div class="ps">Pedidos del día</div><div class="pd">${fmtDate(todayStr())}</div>`;
-  // --- Por cliente ---
+  const today=pedidosActivos();
+  let h=`<div class="pt">LAVASTIDA</div><div class="ps">Pedidos</div><div class="pd">${rangoFechas(today)}</div>`;
+  // --- Por cliente, agrupado por dia ---
+  // Con varios dias en la misma hoja hay que poder ver de cuando es cada pedido.
   h+=`<div>`;
-  today.forEach(o=>{
+  const porDia={};today.forEach(o=>{(porDia[o.fecha]=porDia[o.fecha]||[]).push(o);});
+  const dias=Object.keys(porDia).sort();
+  dias.forEach(f=>{
+  if(dias.length>1) h+=`<div class="cld">${fmtDate(f)}${f===todayStr()?' — hoy':''}</div>`;
+  porDia[f].forEach(o=>{
     const isMsg=esMensajeria(o);
     h+=`<div class="cl">`;
     h+=`<div class="cln">${esc(o.cliente)}${o.telefono?' <span style="font-weight:normal;font-size:11px;color:#666">'+esc(o.telefono)+'</span>':''}<span class="ctag ${isMsg?'msg':'recoge'}">${isMsg?'mensajería':'recoge'}</span></div>`;
@@ -533,6 +573,7 @@ function genPDFPedidos(){
     h+=`<div class="clt">${oHasUSD?fmtUSD(o.totalUSD)+' USD ('+fmtCUP(o.total)+' CUP)':fmtCUP(o.total)+' CUP'}</div>`;
     h+=`</div>`;
   });
+  });
   const grandCUP=today.reduce((s,o)=>s+o.total,0);
   const grandUSD=today.reduce((s,o)=>s+(o.totalUSD||0),0);
   const grandStr=grandUSD>0?fmtUSD(grandUSD)+' USD ('+fmtCUP(grandCUP)+' CUP)':fmtCUP(grandCUP)+' CUP';
@@ -543,7 +584,8 @@ function genPDFPedidos(){
 
 function genPDF(){
   const prod=getProduction(),masas=calcMasas(prod);
-  let h=`<div class="pt">LAVASTIDA</div><div class="ps">Hoja de Producción</div><div class="pd">${fmtDate(todayStr())}</div>`;
+  const enVentana=pedidosActivos();
+  let h=`<div class="pt">LAVASTIDA</div><div class="ps">Hoja de Producción</div><div class="pd">${rangoFechas(enVentana)}</div>`;
   for(const masa of MASAS){
     const m=masas[masa.nombre];
     if(!m.items.length) continue;
